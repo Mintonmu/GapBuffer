@@ -1,18 +1,30 @@
-//! By convention, root.zig is the root source file when making a package.
 const std = @import("std");
-const Io = std.Io;
 
-/// This is a documentation comment to explain the `printAnotherMessage` function below.
-///
-/// Accepting an `Io.Writer` instance is a handy way to write reusable code.
-pub fn printAnotherMessage(writer: *Io.Writer) Io.Writer.Error!void {
-    try writer.print("Run `zig build test` to run the tests.\n", .{});
-}
+pub const GapBuffer = struct {
+    buffer: []u8,
+    capacity: usize,
+    gap_start: usize,
+    gap_end: usize,
 
-pub fn add(a: i32, b: i32) i32 {
-    return a + b;
-}
+    pub fn init(allocator: std.mem.Allocator, capacity: usize) !GapBuffer {
+        return GapBuffer{
+            .buffer = try allocator.alloc(u8, capacity),
+            .capacity = capacity,
+            .gap_start = 0,
+            .gap_end = 0,
+        };
+    }
 
-test "basic add functionality" {
-    try std.testing.expect(add(3, 7) == 10);
+    pub fn deinit(self: GapBuffer, allocator: std.mem.Allocator) void {
+        allocator.free(self.buffer);
+    }
+
+    pub fn grow() !void {}
+};
+
+test "test_gap_buffer" {
+    const gpa = std.testing.allocator;
+    var gap_buffer = try GapBuffer.init(gpa, 1024);
+    defer gap_buffer.deinit(gpa);
+    std.debug.print("gap_buffer: {d}\n", .{gap_buffer.capacity});
 }
