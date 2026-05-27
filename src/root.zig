@@ -8,7 +8,7 @@ pub const GapBuffer = struct {
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator, capacity: usize) !GapBuffer {
-        return GapBuffer{
+        return .{
             .buffer = try allocator.alloc(u8, capacity),
             .capacity = capacity,
             .gap_start = 0,
