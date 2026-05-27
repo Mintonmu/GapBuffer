@@ -178,3 +178,61 @@ test "GapBuffer: grow" {
     // 初始 2，满了后 grow(4)，所以容量应该是 4
     try std.testing.expectEqual(@as(usize, 4), gb.capacity);
 }
+
+// ==========================================
+// C ABI
+// ==========================================
+
+const c_allocator = std.heap.c_allocator;
+
+export fn gapbuffer_create(capacity: usize) ?*GapBuffer {
+    const gb = c_allocator.create(GapBuffer) catch return null;
+    gb.* = GapBuffer.init(c_allocator, capacity) catch {
+        c_allocator.destroy(gb);
+        return null;
+    };
+    return gb;
+}
+
+export fn gapbuffer_destroy(gb: ?*GapBuffer) void {
+    if (gb) |ptr| {
+        ptr.deinit();
+        c_allocator.destroy(ptr);
+    }
+}
+
+export fn gapbuffer_insert(gb: ?*GapBuffer, value: u8) void {
+    if (gb) |ptr| {
+        ptr.insert(value);
+    }
+}
+
+export fn gapbuffer_move_cursor_left(gb: ?*GapBuffer) void {
+    if (gb) |ptr| ptr.moveCursorLeft();
+}
+
+export fn gapbuffer_move_cursor_right(gb: ?*GapBuffer) void {
+    if (gb) |ptr| ptr.moveCursorRight();
+}
+
+export fn gapbuffer_backspace(gb: ?*GapBuffer) void {
+    if (gb) |ptr| ptr.backspace();
+}
+
+export fn gapbuffer_get_text(gb: ?*GapBuffer, out_len: ?*usize) ?[*]u8 {
+    if (gb) |ptr| {
+        if (ptr.getText(c_allocator)) |text| {
+            if (out_len) |len| len.* = text.len;
+            return text.ptr;
+        } else |_| {
+            return null;
+        }
+    }
+    return null;
+}
+
+export fn gapbuffer_free_text(text: ?[*]u8, len: usize) void {
+    if (text) |ptr| {
+        c_allocator.free(ptr[0..len]);
+    }
+}

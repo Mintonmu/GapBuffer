@@ -33,6 +33,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/GapBuffer.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
 
     const lib_static = b.addLibrary(.{
@@ -58,4 +59,58 @@ pub fn build(b: *std.Build) void {
 
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
+
+    const examples_step = b.step("examples", "Build all examples");
+
+    // 1. C Example (使用 Zig 内置的 C 编译器)
+    const c_example = b.addExecutable(.{
+        .name = "c_example",
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        }),
+    });
+    c_example.root_module.addCSourceFile(.{
+        .file = b.path("examples/c/main.c"),
+        .flags = &.{},
+    });
+    c_example.root_module.linkLibrary(lib_static);
+    const install_c_example = b.addInstallArtifact(c_example, .{});
+    examples_step.dependOn(&install_c_example.step);
+
+    // 2. C++ Example (使用 Zig 内置的 C++ 编译器)
+    const cpp_example = b.addExecutable(.{
+        .name = "cpp_example",
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+            .link_libcpp = true,
+        }),
+    });
+    cpp_example.root_module.addCSourceFile(.{
+        .file = b.path("examples/cpp/main.cpp"),
+        .flags = &.{"-std=c++11"},
+    });
+    cpp_example.root_module.linkLibrary(lib_static);
+    const install_cpp_example = b.addInstallArtifact(cpp_example, .{});
+    examples_step.dependOn(&install_cpp_example.step);
+
+    // 3. Rust Example (通过系统命令调用 rustc)
+    const rustc_cmd = b.addSystemCommand(&.{
+        "rustc",
+        "examples/rust/main.rs",
+        "--crate-name",
+        "rust_example",
+        "-L",
+        "zig-out/lib",
+        "-l",
+        "gapbuffer",
+        "--out-dir",
+        "zig-out/bin",
+    });
+    // 确保静态库先被安装到 zig-out/lib，然后再跑 rustc
+    rustc_cmd.step.dependOn(b.getInstallStep());
+    examples_step.dependOn(&rustc_cmd.step);
 }
